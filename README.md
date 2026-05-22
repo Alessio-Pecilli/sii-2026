@@ -19,7 +19,7 @@ Il workflow dell'agente è suddiviso in quattro fasi principali:
 
 Per garantire la massima solidità metodologica, il componente di NLI è stato sottoposto a un processo di fine-tuning a partire dal checkpoint pre-addestrato `cross-encoder/nli-deberta-v3-large`.
 
-* **Dataset Utilizzato:** **FEVER (Fact Extraction and VERification)**.
+* **Dataset Utilizzato:** **FEVER (Fact Extraction and VERification) (link: https://fever.ai/download/fever/train.jsonl)**.
 * **Allineamento dei Dati:** I dati originali di FEVER sono stati mappati sulle tre classi del Cross-Encoder:
   * `SUPPORTS` $\rightarrow$ *Entailment* (Notizia Validata)
   * `REFUTES` $\rightarrow$ *Contradiction* (Fake News)
