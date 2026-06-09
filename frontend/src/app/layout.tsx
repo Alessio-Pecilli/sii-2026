@@ -15,8 +15,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fact-Checking AI",
-  description: "Single Page Application per la verifica rapida delle notizie.",
+  title: "FactCheck Agent — Verifica notizie",
+  description:
+    "Verifica la credibilità delle notizie con pipeline RAG, NLI e LLM.",
 };
 
 export default function RootLayout({
