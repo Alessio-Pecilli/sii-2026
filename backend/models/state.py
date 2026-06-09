@@ -8,8 +8,15 @@ class HiddenState(TypedDict):
     search_query: str
     researches: str
     nli_label: str
+    confidence: float
     motivation: str
     response: str
 
 class OutputState(TypedDict):
+    query: str
+    search_query: str
+    researches: str
+    nli_label: str
+    confidence: float
+    motivation: str
     response: str

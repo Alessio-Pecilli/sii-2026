@@ -38,7 +38,9 @@ def nli_classification_node(state: HiddenState):
         outputs = ml.nli_model(**inputs)
         
     logits = outputs.logits
+    probs = torch.nn.functional.softmax(logits, dim=-1)
     predicted_class_id = logits.argmax().item()
+    confidence = probs[0, predicted_class_id].item()
     
     mapping = {
         0: "SUPPORTS",
@@ -47,8 +49,8 @@ def nli_classification_node(state: HiddenState):
     }
     
     label = mapping[predicted_class_id]
-    print(f"[NLI Node] Etichetta NLI generata: {label}")
-    return {'nli_label': label}
+    print(f"[NLI Node] Etichetta NLI generata: {label} con confidenza {confidence}")
+    return {'nli_label': label, 'confidence': confidence}
 
 def generate_motivation_node(state: HiddenState):
     final_prompt = f"""
@@ -71,6 +73,7 @@ def generate_motivation_node(state: HiddenState):
             for part in content
             if not isinstance(part, dict) or part.get('type') != 'thinking'
         )
-    final_response = str(content) + "\n\n---\n**Evidenza grezza recuperata dal web (DuckDuckGo):**\n" + state['researches']
+    motivation_text = str(content)
+    final_response = motivation_text + "\n\n---\n**Evidenza grezza recuperata dal web (DuckDuckGo):**\n" + state['researches']
     
-    return {'response': final_response}
+    return {'motivation': motivation_text, 'response': final_response}

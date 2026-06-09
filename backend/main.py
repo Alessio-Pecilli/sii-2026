@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from models.api import QueryRequest, QueryResponse
+from schemas import VerifyRequest, VerifyResponse, NliResult
 from core.ml import init_models
 from workflow.graph import create_workflow
 
@@ -27,14 +27,35 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Agent NLI API", lifespan=lifespan)
 
-@app.post("/verify", response_model=QueryResponse)
-async def verify_news(request: QueryRequest):
+@app.post("/verify", response_model=VerifyResponse)
+async def verify_news(request: VerifyRequest):
     if workflow_app is None:
         raise HTTPException(status_code=503, detail="Workflow non ancora inizializzato.")
     
     try:
         input_data = {"query": request.query}
         result = workflow_app.invoke(input_data)
-        return QueryResponse(response=result['response'])
+        
+        nli_verdict = result.get('nli_label', 'NOT ENOUGH INFO')
+        confidence = result.get('confidence', 0.0)
+        explanation = result.get('motivation', result.get('response', ''))
+        search_queries = [result.get('search_query')] if result.get('search_query') else []
+        retrieved_docs = [result.get('researches')] if result.get('researches') else []
+        
+        return VerifyResponse(
+            verdict=nli_verdict,
+            confidence=confidence,
+            explanation=explanation,
+            sources=[],
+            nli_results=[
+                NliResult(
+                    verdict=nli_verdict,
+                    confidence=confidence,
+                    premise=result.get('researches', '')
+                )
+            ],
+            search_queries=search_queries,
+            retrieved_docs=retrieved_docs
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
