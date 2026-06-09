@@ -1,5 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from models.api import QueryRequest, QueryResponse
 from core.ml import init_models

@@ -395,7 +395,7 @@ export default function Home() {
                 </p>
               </div>
 
-              {result && result.sources.length > 0 && (
+              {result && result.sources && result.sources.length > 0 && (
                 <div className="rounded-xl border border-slate-200/80 bg-white/50 p-4 dark:border-slate-700/60 dark:bg-slate-950/30">
                   <p className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Fonti ({result.sources.length})
@@ -425,7 +425,7 @@ export default function Home() {
                 </div>
               )}
 
-              {result && result.nli_results.length > 0 && (
+              {result && result.nli_results && result.nli_results.length > 0 && (
                 <div className="rounded-xl border border-slate-200/80 bg-white/50 dark:border-slate-700/60 dark:bg-slate-950/30">
                   <button
                     type="button"
@@ -469,7 +469,7 @@ export default function Home() {
                 </div>
               )}
 
-              {result && result.retrieved_docs.length > 0 && (
+              {result && result.retrieved_docs && result.retrieved_docs.length > 0 && (
                 <div className="rounded-xl border border-slate-200/80 bg-white/50 dark:border-slate-700/60 dark:bg-slate-950/30">
                   <button
                     type="button"

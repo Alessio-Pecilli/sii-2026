@@ -7,3 +7,4 @@ langgraph
 torch
 transformers
 duckduckgo-search
+python-dotenv
