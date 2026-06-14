@@ -13,6 +13,9 @@ class HiddenState(TypedDict):
     retrieved_docs: list[str]
     nli_label: str
     confidence: float
+    nli_model_label: str
+    nli_class_id: int
+    verdict_probabilities: dict[str, float]
     motivation: str
     response: str
 
@@ -25,5 +28,8 @@ class OutputState(TypedDict):
     retrieved_docs: list[str]
     nli_label: str
     confidence: float
+    nli_model_label: str
+    nli_class_id: int
+    verdict_probabilities: dict[str, float]
     motivation: str
     response: str

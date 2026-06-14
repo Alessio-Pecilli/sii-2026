@@ -109,6 +109,62 @@ def _extract_llm_text(response: Any) -> str:
     return str(content).strip()
 
 
+def _format_confidence_percentage(value: float) -> str:
+    return f"{round(value * 100, 1)}%"
+
+
+def _format_sources_for_prompt(sources: list[str]) -> str:
+    if not sources:
+        return "- Nessuna fonte strutturata disponibile."
+    return "\n".join(f"- {source}" for source in sources)
+
+
+def _build_verdict_probabilities(probabilities: torch.Tensor) -> dict[str, float]:
+    verdict_probabilities = {
+        "SUPPORTS": 0.0,
+        "REFUTES": 0.0,
+        "NOT ENOUGH INFO": 0.0,
+    }
+
+    for class_id, probability in enumerate(probabilities[0].tolist()):
+        model_label = _resolve_model_label(class_id)
+        verdict = _map_model_label_to_verdict(model_label)
+        verdict_probabilities[verdict] += float(probability)
+
+    return verdict_probabilities
+
+
+def _format_verdict_probabilities(verdict_probabilities: dict[str, float]) -> str:
+    verdict_order = ["SUPPORTS", "REFUTES", "NOT ENOUGH INFO"]
+    return ", ".join(
+        f"{verdict}={_format_confidence_percentage(verdict_probabilities.get(verdict, 0.0))}"
+        for verdict in verdict_order
+    )
+
+
+def _build_technical_summary(state: HiddenState) -> str:
+    verdict = state["nli_label"]
+    confidence = _format_confidence_percentage(state["confidence"])
+    model_label = state.get("nli_model_label", "n/d")
+    class_id = state.get("nli_class_id", "n/d")
+    verdict_probabilities = state.get("verdict_probabilities", {})
+    probabilities_text = _format_verdict_probabilities(verdict_probabilities)
+
+    return (
+        f"**Verdetto tecnico:** {verdict}. "
+        f"**Confidenza NLI:** {confidence}. "
+        f"**Classe raw del modello:** {model_label} (id={class_id}). "
+        f"**Distribuzione:** {probabilities_text}."
+    )
+
+
+def _prepend_technical_summary(text: str, state: HiddenState) -> str:
+    summary = _build_technical_summary(state)
+    if text.startswith(summary):
+        return text
+    return summary + "\n\n" + text.strip()
+
+
 def _fallback_search_query(query: str) -> str:
     words = re.findall(r"\w+", query.lower())
     keywords = [word for word in words if len(word) > 2 and word not in ITALIAN_STOPWORDS]
@@ -118,7 +174,6 @@ def _fallback_search_query(query: str) -> str:
 
 def _fallback_motivation(state: HiddenState) -> str:
     verdict = state["nli_label"]
-    confidence_pct = round(state["confidence"] * 100, 1)
     verdict_text = {
         "SUPPORTS": "le evidenze recuperate sono coerenti con il claim",
         "REFUTES": "le evidenze recuperate contraddicono il claim",
@@ -136,7 +191,8 @@ def _fallback_motivation(state: HiddenState) -> str:
 
     return (
         "**Oggetto: Verifica della notizia**\n\n"
-        f"Il verdetto del sistema e' **{verdict}** con una confidenza del {confidence_pct}%. "
+        f"{_build_technical_summary(state)}\n\n"
+        f"Il verdetto del sistema e' **{verdict}** con una confidenza del {_format_confidence_percentage(state['confidence'])}. "
         f"In termini pratici, significa che {verdict_text}.\n\n"
         "Le evidenze principali considerate dal sistema sono le seguenti:\n\n"
         f"{evidence_text}\n\n"
@@ -241,14 +297,25 @@ def nli_classification_node(state: HiddenState):
     confidence = probs[0, predicted_class_id].item()
     model_label = _resolve_model_label(predicted_class_id)
     label = _map_model_label_to_verdict(model_label)
+    verdict_probabilities = _build_verdict_probabilities(probs)
     print(
         f"[NLI Node] class_id={predicted_class_id}, model_label={model_label}, "
-        f"verdict={label}, confidence={confidence}"
+        f"verdict={label}, confidence={confidence}, "
+        f"distribution={verdict_probabilities}"
     )
-    return {"nli_label": label, "confidence": confidence}
+    return {
+        "nli_label": label,
+        "confidence": confidence,
+        "nli_model_label": model_label,
+        "nli_class_id": predicted_class_id,
+        "verdict_probabilities": verdict_probabilities,
+    }
 
 
 def generate_motivation_node(state: HiddenState):
+    confidence_text = _format_confidence_percentage(state["confidence"])
+    sources_text = _format_sources_for_prompt(state.get("sources", []))
+    probabilities_text = _format_verdict_probabilities(state.get("verdict_probabilities", {}))
     final_prompt = f"""
     Devi preparare il testo finale per un sistema di fact-checking.
 
@@ -261,6 +328,18 @@ def generate_motivation_node(state: HiddenState):
     Verdetto NLI:
     "{state['nli_label']}"
 
+    Confidenza NLI:
+    "{confidence_text}"
+
+    Classe tecnica raw del modello:
+    "{state.get('nli_model_label', 'n/d')}"
+
+    Distribuzione delle probabilita aggregate per verdetto:
+    "{probabilities_text}"
+
+    Fonti candidate da citare solo se coerenti con le evidenze:
+    {sources_text}
+
     Legenda del verdetto:
     - SUPPORTS = confermato dalle fonti
     - REFUTES = smentito dalle fonti
@@ -271,8 +350,13 @@ def generate_motivation_node(state: HiddenState):
     Vincoli obbligatori:
     - Non scrivere premesse meta come "ecco una proposta di risposta".
     - Apri con un titolo breve in markdown, per esempio: **Oggetto: Verifica della notizia ...**
+    - Subito dopo il titolo dichiara esplicitamente il verdetto NLI esatto, senza riformularlo in senso opposto.
     - Prosegui con 3-5 paragrafi brevi e ben collegati.
     - Spiega prima il verdetto, poi le evidenze principali, poi l'eventuale causa del malinteso se emerge.
+    - Devi spiegare il verdetto NLI, non ricalcolarlo e non contraddirlo.
+    - Se il verdetto e' REFUTES non usare formule che implichino conferma; se e' SUPPORTS non usare formule che implichino smentita.
+    - Se la confidenza non e' alta, puoi esprimere cautela ma devi restare coerente con il verdetto NLI.
+    - Cita in modo sobrio 1-3 fonti, ma solo se presenti nelle fonti candidate o nelle evidenze recuperate.
     - Concludi con una frase finale netta e coerente con il verdetto.
     - Non inventare fatti non presenti nelle evidenze recuperate.
     - Mantieni un tono umano, non burocratico.
@@ -281,7 +365,7 @@ def generate_motivation_node(state: HiddenState):
         motivation_text = _fallback_motivation(state)
     else:
         res = ml.llm.invoke(final_prompt)
-        motivation_text = _extract_llm_text(res)
+        motivation_text = _prepend_technical_summary(_extract_llm_text(res), state)
     final_response = (
         motivation_text
         + "\n\n---\n**Evidenza grezza recuperata dal web (DuckDuckGo):**\n"
