@@ -1,23 +1,22 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Noto_Sans } from "next/font/google";
+import { IBM_Plex_Mono, Inter } from "next/font/google";
 import "./globals.css";
 
-const notoSans = Noto_Sans({
-  variable: "--font-noto-sans",
-  weight: ["400", "500", "600", "700"],
+const inter = Inter({
+  variable: "--font-inter",
+  weight: ["400", "500", "600"],
   subsets: ["latin"],
 });
 
 const ibmPlexMono = IBM_Plex_Mono({
   variable: "--font-ibm-mono",
-  weight: ["400", "500"],
+  weight: ["400", "500", "600"],
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "FactCheck Agent — Verifica notizie",
-  description:
-    "Verifica la credibilità delle notizie con pipeline RAG, NLI e LLM.",
+  title: "FactCheck Agent",
+  description: "Verifica automatica di claim giornalistici via RAG, NLI e LLM.",
 };
 
 export default function RootLayout({
@@ -26,8 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it">
-      <body className={`${notoSans.variable} ${ibmPlexMono.variable} antialiased`}>
+    <html lang="it" className="dark">
+      <body className={`${inter.variable} ${ibmPlexMono.variable} antialiased`}>
         {children}
       </body>
     </html>
