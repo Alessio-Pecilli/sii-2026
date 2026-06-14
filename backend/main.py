@@ -2,13 +2,11 @@ from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
-from schemas import VerifyRequest, VerifyResponse, NliResult
+from models.schemas import VerifyRequest, VerifyResponse, NliResult
 from core.ml import init_models
 from workflow.graph import create_workflow
 
 load_dotenv()
-
-
 
 workflow_app = None
 
