@@ -60,7 +60,7 @@ const verdictMap: Record<NliVerdict, VerdictDisplay> = {
 
 export const idleDisplay: VerdictDisplay = {
   label: "In attesa",
-  shortLabel: "—",
+  shortLabel: "-",
   summary: "Avvia una verifica per vedere il report.",
   hex: "#71717a",
   colorClass: "text-zinc-500",
@@ -84,10 +84,10 @@ export const pipelineSteps: { id: PipelineStepId; label: string; description: st
 ];
 
 export const loadingStages = [
-  { label: "Ricerca fonti sul web…", progress: 30 },
-  { label: "Analisi di coerenza…", progress: 55 },
-  { label: "Generazione report…", progress: 85 },
-  { label: "Completamento…", progress: 96 },
+  { label: "Ricerca fonti sul web...", progress: 30 },
+  { label: "Analisi di coerenza...", progress: 55 },
+  { label: "Generazione report...", progress: 85 },
+  { label: "Completamento...", progress: 96 },
 ];
 
 export function formatConfidence(value: number): string {

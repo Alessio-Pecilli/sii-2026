@@ -8,3 +8,4 @@ torch
 transformers
 duckduckgo-search
 python-dotenv
+sentencepiece

@@ -1,8 +1,16 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { ExternalLink } from "lucide-react";
-import { splitExplanation, sourceLabel, truncateText } from "@/lib/explain";
+import Image from "next/image";
+import { useState, type ReactNode } from "react";
+import { ExternalLink, Globe } from "lucide-react";
+import {
+  parseExplanation,
+  sourceFaviconUrl,
+  sourceLabel,
+  truncateText,
+  type ExplanationBlock,
+  type InlineToken,
+} from "@/lib/explain";
 import { formatConfidence, getVerdictDisplay } from "@/lib/verdict";
 import type { VerifyResponse } from "@/lib/types";
 
@@ -23,10 +31,74 @@ function Card({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function SourceFavicon({ src, label }: { src: string; label: string }) {
+  const [hasError, setHasError] = useState(false);
+  const faviconUrl = sourceFaviconUrl(src);
+
+  if (!faviconUrl || hasError) {
+    return (
+      <span className="source-favicon-fallback" aria-hidden="true">
+        <Globe size={14} />
+      </span>
+    );
+  }
+
+  return (
+    <Image
+      src={faviconUrl}
+      alt={`Favicon di ${label}`}
+      className="source-favicon"
+      width={18}
+      height={18}
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
+function renderInline(tokens: InlineToken[], keyPrefix: string) {
+  return tokens.map((token, index) =>
+    token.strong ? (
+      <strong key={`${keyPrefix}-${index}`}>{token.text}</strong>
+    ) : (
+      <span key={`${keyPrefix}-${index}`}>{token.text}</span>
+    ),
+  );
+}
+
+function renderBlock(block: ExplanationBlock, index: number, hasHeading: boolean) {
+  if (block.type === "heading") {
+    return (
+      <h3 key={`analysis-${index}`} className="analysis-heading">
+        {renderInline(block.content, `heading-${index}`)}
+      </h3>
+    );
+  }
+
+  if (block.type === "list") {
+    return (
+      <ul key={`analysis-${index}`} className="analysis-list">
+        {block.items.map((item, itemIndex) => (
+          <li key={`analysis-${index}-item-${itemIndex}`}>
+            {renderInline(item, `item-${index}-${itemIndex}`)}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  const isLead = index === 0 || (hasHeading && index === 1);
+  return (
+    <p key={`analysis-${index}`} className={isLead ? "analysis-paragraph analysis-lead" : "analysis-paragraph"}>
+      {renderInline(block.content, `paragraph-${index}`)}
+    </p>
+  );
+}
+
 export function InsightColumn({ result, query, isLoading, loadingStage, loadingProgress }: Props) {
   const verdict = result ? getVerdictDisplay(result.verdict) : null;
   const VerdictIcon = verdict?.Icon;
-  const parts = result ? splitExplanation(result.explanation) : [];
+  const blocks = result ? parseExplanation(result.explanation) : [];
+  const hasHeading = blocks.some((block) => block.type === "heading");
 
   return (
     <aside className="insight-column">
@@ -64,7 +136,9 @@ export function InsightColumn({ result, query, isLoading, loadingStage, loadingP
                 <VerdictIcon size={22} style={{ color: verdict.hex }} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p className="verdict-title" style={{ color: verdict.hex }}>{verdict.label}</p>
+                <p className="verdict-title" style={{ color: verdict.hex }}>
+                  {verdict.label}
+                </p>
                 <p className="verdict-desc">{verdict.summary}</p>
                 <div className="score-row">
                   <div className="score-track">
@@ -99,11 +173,13 @@ export function InsightColumn({ result, query, isLoading, loadingStage, loadingP
 
           <Card label="Analisi">
             <div className={`alert-box ${verdict.alertClass}`}>{verdict.summary}</div>
-            <ul className="reason-list">
-              {parts.map((part, i) => (
-                <li key={i}>{part}</li>
-              ))}
-            </ul>
+            <div className="analysis-report">
+              {blocks.length > 0 ? (
+                blocks.map((block, index) => renderBlock(block, index, hasHeading))
+              ) : (
+                <p className="analysis-paragraph">Nessuna spiegazione disponibile.</p>
+              )}
+            </div>
           </Card>
 
           {result.nli_results.length > 0 && (
@@ -139,11 +215,12 @@ export function InsightColumn({ result, query, isLoading, loadingStage, loadingP
                   <li key={i} className="source-item">
                     {src.startsWith("http") ? (
                       <a href={src} target="_blank" rel="noreferrer">
-                        <ExternalLink size={14} style={{ flexShrink: 0, opacity: 0.5 }} />
+                        <SourceFavicon src={src} label={sourceLabel(src)} />
                         <span>
                           <strong>{sourceLabel(src)}</strong>
                           <small>{truncateText(src, 64)}</small>
                         </span>
+                        <ExternalLink size={14} style={{ flexShrink: 0, opacity: 0.5 }} />
                       </a>
                     ) : (
                       <span style={{ padding: "10px 12px", fontSize: "0.8125rem", color: "var(--muted)" }}>

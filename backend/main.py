@@ -36,27 +36,28 @@ async def verify_news(request: VerifyRequest):
     try:
         input_data = {"query": request.query}
         result = workflow_app.invoke(input_data)
-        
-        nli_verdict = result.get('nli_label', 'NOT ENOUGH INFO')
-        confidence = result.get('confidence', 0.0)
-        explanation = result.get('motivation', result.get('response', ''))
-        search_queries = [result.get('search_query')] if result.get('search_query') else []
-        retrieved_docs = [result.get('researches')] if result.get('researches') else []
-        
+
+        nli_verdict = result.get("nli_label", "NOT ENOUGH INFO")
+        confidence = result.get("confidence", 0.0)
+        explanation = result.get("motivation", result.get("response", ""))
+        search_queries = [result.get("search_query")] if result.get("search_query") else []
+        sources = result.get("sources", [])
+        retrieved_docs = result.get("retrieved_docs", [])
+
         return VerifyResponse(
             verdict=nli_verdict,
             confidence=confidence,
             explanation=explanation,
-            sources=[],
+            sources=sources,
             nli_results=[
                 NliResult(
                     verdict=nli_verdict,
                     confidence=confidence,
-                    premise=result.get('researches', '')
+                    premise=result.get("researches", ""),
                 )
             ],
             search_queries=search_queries,
-            retrieved_docs=retrieved_docs
+            retrieved_docs=retrieved_docs,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

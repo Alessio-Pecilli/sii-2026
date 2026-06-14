@@ -26,6 +26,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<PipelineStep>("idle");
   const [result, setResult] = useState<VerifyResponse | null>(null);
+  const [verifiedQuery, setVerifiedQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loadStage, setLoadStage] = useState(loadingStages[0].label);
   const [loadProgress, setLoadProgress] = useState(5);
@@ -40,10 +41,13 @@ export default function Home() {
     window.localStorage.setItem("theme", theme);
   }, [theme]);
 
-  useEffect(() => () => {
-    timers.current.forEach(clearTimeout);
-    if (interval.current) clearInterval(interval.current);
-  }, []);
+  useEffect(
+    () => () => {
+      timers.current.forEach(clearTimeout);
+      if (interval.current) clearInterval(interval.current);
+    },
+    [],
+  );
 
   const query = text.trim();
   const valid = query.length >= MIN_QUERY_LENGTH;
@@ -58,7 +62,7 @@ export default function Home() {
   };
 
   const statusLabel = loading
-    ? "Analisi in corso…"
+    ? "Analisi in corso..."
     : result
       ? "Report pronto"
       : query && !valid
@@ -73,29 +77,33 @@ export default function Home() {
     const txts = Array.from(list).filter((f) => f.type === "text/plain" || f.name.endsWith(".txt"));
     if (!txts.length) return;
     const merged = (await Promise.all(txts.map((f) => f.text()))).join("\n\n").trim();
-    if (merged) setText((p) => (p.trim() ? `${p.trim()}\n\n${merged}` : merged));
+    if (merged) setText((prev) => (prev.trim() ? `${prev.trim()}\n\n${merged}` : merged));
   };
 
   const run = async () => {
     if (!valid || loading) return;
+
     setError(null);
     setResult(null);
     setLoading(true);
     setStep("rag");
     timers.current.forEach(clearTimeout);
-    (["rag", "nli", "llm"] as PipelineStepId[]).forEach((s, i) => {
-      timers.current.push(setTimeout(() => setStep(s), i * 1400));
+
+    (["rag", "nli", "llm"] as PipelineStepId[]).forEach((pipelineStep, index) => {
+      timers.current.push(setTimeout(() => setStep(pipelineStep), index * 1400));
     });
 
     loadStart.current = performance.now();
     stageIdx.current = 0;
     setLoadStage(loadingStages[0].label);
     setLoadProgress(5);
+
     if (interval.current) clearInterval(interval.current);
     interval.current = setInterval(() => {
       const elapsed = (performance.now() - loadStart.current) / 1000;
       const target = loadingStages[stageIdx.current];
-      setLoadProgress((p) => Math.min(target.progress, p + 2));
+      setLoadProgress((prev) => Math.min(target.progress, prev + 2));
+
       if (elapsed > (stageIdx.current + 1) * 2.5 && stageIdx.current < loadingStages.length - 1) {
         stageIdx.current++;
         setLoadStage(loadingStages[stageIdx.current].label);
@@ -107,11 +115,12 @@ export default function Home() {
       timers.current.forEach(clearTimeout);
       setStep("done");
       setResult(res);
+      setVerifiedQuery(query);
       setLoadProgress(100);
-    } catch (e) {
+    } catch (error) {
       timers.current.forEach(clearTimeout);
       setStep("idle");
-      setError(e instanceof VerifyApiError ? e.message : "Errore imprevisto.");
+      setError(error instanceof VerifyApiError ? error.message : "Errore imprevisto.");
     } finally {
       if (interval.current) clearInterval(interval.current);
       setLoading(false);
@@ -129,7 +138,7 @@ export default function Home() {
           <button
             type="button"
             className="icon-btn"
-            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            onClick={() => setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"))}
             aria-label="Cambia tema"
           >
             {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
@@ -143,8 +152,8 @@ export default function Home() {
           id="claim"
           className="news-textarea"
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Incolla qui il testo della notizia…"
+          onChange={(event) => setText(event.target.value)}
+          placeholder="Incolla qui il testo della notizia..."
           disabled={loading}
         />
 
@@ -157,20 +166,27 @@ export default function Home() {
           <label
             className="btn btn-ghost"
             style={{ cursor: "pointer", borderColor: isDragOver ? "var(--primary)" : undefined }}
-            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsDragOver(true);
+            }}
             onDragLeave={() => setIsDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setIsDragOver(false); void pickFiles(e.dataTransfer.files); }}
+            onDrop={(event) => {
+              event.preventDefault();
+              setIsDragOver(false);
+              void pickFiles(event.dataTransfer.files);
+            }}
           >
             <input
               type="file"
               multiple
               accept=".txt,text/plain"
               className="hidden"
-              onChange={(e) => void pickFiles(e.target.files)}
+              onChange={(event) => void pickFiles(event.target.files)}
               disabled={loading}
             />
             <FileUp size={16} />
-            Allega file
+            Allega file .txt
           </label>
           <button type="button" className="btn btn-primary" onClick={() => void run()} disabled={!valid || loading}>
             <Search size={16} />
@@ -183,11 +199,15 @@ export default function Home() {
           {statusLabel}
         </div>
 
-        {files.map((f, i) => (
-          <div key={`${f.name}-${i}`} className="file-chip">
+        {files.map((file, index) => (
+          <div key={`${file.name}-${index}`} className="file-chip">
             <FileText size={14} />
-            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</span>
-            <button type="button" onClick={() => setFiles((p) => p.filter((_, j) => j !== i))} aria-label="Rimuovi">
+            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{file.name}</span>
+            <button
+              type="button"
+              onClick={() => setFiles((prev) => prev.filter((_, itemIndex) => itemIndex !== index))}
+              aria-label="Rimuovi"
+            >
               <X size={14} />
             </button>
           </div>
@@ -198,18 +218,22 @@ export default function Home() {
         {!result && !loading && (
           <div className="examples-block">
             <p className="examples-label">Prova con un esempio</p>
-            {examples.map((ex) => (
-              <button key={ex} type="button" className="example-btn" onClick={() => setText(ex)}>
-                {ex}
+            {examples.map((example) => (
+              <button key={example} type="button" className="example-btn" onClick={() => setText(example)}>
+                {example}
               </button>
             ))}
           </div>
         )}
 
         <div className="pipeline-row">
-          {pipelineSteps.map((s) => (
-            <div key={s.id} className={`pipeline-step ${stepStatus(s.id)}`} title={s.description}>
-              {s.label}
+          {pipelineSteps.map((pipelineStep) => (
+            <div
+              key={pipelineStep.id}
+              className={`pipeline-step ${stepStatus(pipelineStep.id)}`}
+              title={pipelineStep.description}
+            >
+              {pipelineStep.label}
             </div>
           ))}
         </div>
@@ -217,7 +241,7 @@ export default function Home() {
 
       <InsightColumn
         result={result}
-        query={query}
+        query={verifiedQuery}
         isLoading={loading}
         loadingStage={loadStage}
         loadingProgress={loadProgress}
