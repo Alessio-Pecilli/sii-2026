@@ -25,7 +25,7 @@ class OutputState(TypedDict):
 
 
 def _get_llm() -> ChatGoogleGenerativeAI:
-    model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    model = os.getenv("GEMINI_MODEL", "gemma-4-31b-it")
     return ChatGoogleGenerativeAI(model=model)
 
 
