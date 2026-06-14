@@ -145,6 +145,41 @@ def _fallback_motivation(state: HiddenState) -> str:
     )
 
 
+def _map_model_label_to_verdict(model_label: str) -> str:
+    normalized_label = model_label.strip().lower().replace(" ", "_")
+    verdict_map = {
+        "entailment": "SUPPORTS",
+        "supports": "SUPPORTS",
+        "support": "SUPPORTS",
+        "contradiction": "REFUTES",
+        "refutes": "REFUTES",
+        "refute": "REFUTES",
+        "neutral": "NOT ENOUGH INFO",
+        "not_enough_info": "NOT ENOUGH INFO",
+        "nei": "NOT ENOUGH INFO",
+    }
+
+    if normalized_label not in verdict_map:
+        raise ValueError(f"Etichetta NLI del modello non riconosciuta: {model_label}")
+
+    return verdict_map[normalized_label]
+
+
+def _resolve_model_label(predicted_class_id: int) -> str:
+    id2label = getattr(ml.nli_model.config, "id2label", {}) or {}
+    model_label = id2label.get(predicted_class_id, id2label.get(str(predicted_class_id), ""))
+
+    if model_label:
+        return str(model_label)
+
+    label2id = getattr(ml.nli_model.config, "label2id", {}) or {}
+    for label, class_id in label2id.items():
+        if class_id == predicted_class_id:
+            return str(label)
+
+    raise ValueError(f"Impossibile risolvere la label NLI per class_id={predicted_class_id}")
+
+
 def refine_query_node(state: HiddenState):
     prompt = f"""
     Devi fare una ricerca su Google/DuckDuckGo per verificare la seguente notizia: "{state['query']}"
@@ -204,15 +239,12 @@ def nli_classification_node(state: HiddenState):
     probs = torch.nn.functional.softmax(logits, dim=-1)
     predicted_class_id = logits.argmax().item()
     confidence = probs[0, predicted_class_id].item()
-
-    mapping = {
-        0: "SUPPORTS",
-        1: "NOT ENOUGH INFO",
-        2: "REFUTES",
-    }
-
-    label = mapping[predicted_class_id]
-    print(f"[NLI Node] Etichetta NLI generata: {label} con confidenza {confidence}")
+    model_label = _resolve_model_label(predicted_class_id)
+    label = _map_model_label_to_verdict(model_label)
+    print(
+        f"[NLI Node] class_id={predicted_class_id}, model_label={model_label}, "
+        f"verdict={label}, confidence={confidence}"
+    )
     return {"nli_label": label, "confidence": confidence}
 
 
