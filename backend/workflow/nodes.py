@@ -238,9 +238,12 @@ def _resolve_model_label(predicted_class_id: int) -> str:
 
 def refine_query_node(state: HiddenState):
     prompt = f"""
-    Devi fare una ricerca su Google/DuckDuckGo per verificare la seguente notizia: "{state['query']}"
-    Estrai solo le parole chiave essenziali o formula una query di ricerca ottimale (max 5-6 parole).
-    Rispondi unicamente con la stringa di ricerca, senza formattazione o introduzioni.
+    Genera una query di ricerca neutrale per Google/DuckDuckGo a partire da questo testo: "{state['query']}"
+    Mantieni solo i termini informativi essenziali, come nomi propri, luoghi, date, enti o evento principale.
+    Non aggiungere parole che suggeriscano un esito, una verifica o un giudizio, come "vero", "falso", "bufala", "smentita" o simili.
+    Se utile, riformula in modo breve e generico senza cambiare il significato.
+    Lunghezza massima: 5-6 parole.
+    Rispondi solo con la query, senza virgolette, formattazione o testo aggiuntivo.
     """
     if ml.llm is None:
         search_query = _fallback_search_query(state["query"])
