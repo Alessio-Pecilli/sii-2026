@@ -8,56 +8,24 @@ import core.ml as ml
 from models.state import HiddenState
 
 ITALIAN_STOPWORDS = {
-    "a",
-    "ad",
-    "al",
-    "alla",
-    "allo",
-    "anche",
-    "che",
-    "chi",
-    "con",
-    "da",
-    "dal",
-    "dalla",
-    "dello",
-    "dei",
-    "del",
-    "della",
-    "di",
-    "e",
-    "ed",
-    "gli",
-    "ha",
-    "hanno",
-    "i",
-    "il",
-    "in",
-    "la",
-    "le",
-    "lo",
-    "ma",
-    "nel",
-    "nella",
-    "non",
-    "o",
-    "per",
-    "piu",
-    "più",
-    "quale",
-    "quali",
-    "se",
-    "si",
-    "sia",
-    "sono",
-    "su",
-    "tra",
-    "un",
-    "una",
+    "a", "ad", "al", "alla", "allo", "anche", "che", "chi", "con", "da", "dal",
+    "dalla", "dello", "dei", "del", "della", "di", "e", "ed", "gli", "ha",
+    "hanno", "i", "il", "in", "la", "le", "lo", "ma", "nel", "nella", "non",
+    "o", "per", "piu", "più", "quale", "quali", "se", "si", "sia", "sono",
+    "su", "tra", "un", "una",
 }
 
 
 def _format_search_result(result: dict[str, str], index: int) -> str:
+    """Formats a single normalized search result into a readable markdown snippet.
+
+    Args:
+        result: A dictionary containing title, snippet, and link keys.
+        index: The index of the search result.
+
+    Returns:
+        A formatted string with index, title, snippet, and link.
+    """
     title = result.get("title") or "Senza titolo"
     snippet = result.get("snippet") or "Snippet non disponibile."
     link = result.get("link") or "Link non disponibile."
@@ -65,6 +33,14 @@ def _format_search_result(result: dict[str, str], index: int) -> str:
 
 
 def _normalize_search_results(results: Any) -> list[dict[str, str]]:
+    """Normalizes raw search results from DuckDuckGo into a standard dictionary format.
+
+    Args:
+        results: Raw results, typically a list of dictionaries from the search tool.
+
+    Returns:
+        A list of dictionaries with normalized keys (title, snippet, link).
+    """
     if not isinstance(results, list):
         return []
 
@@ -85,6 +61,14 @@ def _normalize_search_results(results: Any) -> list[dict[str, str]]:
 
 
 def _extract_sources(results: list[dict[str, str]]) -> list[str]:
+    """Extracts unique source URLs from the normalized search results.
+
+    Args:
+        results: Normalized search results list.
+
+    Returns:
+        A list of unique source links.
+    """
     seen: set[str] = set()
     sources: list[str] = []
 
@@ -99,6 +83,14 @@ def _extract_sources(results: list[dict[str, str]]) -> list[str]:
 
 
 def _extract_llm_text(response: Any) -> str:
+    """Extracts and cleans text content from the LLM invocation response.
+
+    Args:
+        response: The response object from ChatGoogleGenerativeAI invocation.
+
+    Returns:
+        The extracted and cleaned string.
+    """
     content = response.content
     if isinstance(content, list):
         content = "".join(
@@ -110,16 +102,40 @@ def _extract_llm_text(response: Any) -> str:
 
 
 def _format_confidence_percentage(value: float) -> str:
+    """Converts a confidence probability to a percentage string.
+
+    Args:
+        value: Float probability between 0.0 and 1.0.
+
+    Returns:
+        A formatted string like '85.4%'.
+    """
     return f"{round(value * 100, 1)}%"
 
 
 def _format_sources_for_prompt(sources: list[str]) -> str:
+    """Formats a list of sources for inclusion in the LLM final prompt.
+
+    Args:
+        sources: A list of source URLs.
+
+    Returns:
+        A markdown bulleted list of sources.
+    """
     if not sources:
         return "- Nessuna fonte strutturata disponibile."
     return "\n".join(f"- {source}" for source in sources)
 
 
 def _build_verdict_probabilities(probabilities: torch.Tensor) -> dict[str, float]:
+    """Aggregates raw model probabilities into FEVER verdict categories.
+
+    Args:
+        probabilities: PyTorch tensor containing predicted probabilities.
+
+    Returns:
+        A dictionary mapping 'SUPPORTS', 'REFUTES', and 'NOT ENOUGH INFO' to probabilities.
+    """
     verdict_probabilities = {
         "SUPPORTS": 0.0,
         "REFUTES": 0.0,
@@ -135,6 +151,14 @@ def _build_verdict_probabilities(probabilities: torch.Tensor) -> dict[str, float
 
 
 def _format_verdict_probabilities(verdict_probabilities: dict[str, float]) -> str:
+    """Formats verdict probabilities into a single comma-separated string.
+
+    Args:
+        verdict_probabilities: Dictionary of verdict probabilities.
+
+    Returns:
+        A string like 'SUPPORTS=80%, REFUTES=15%, NOT ENOUGH INFO=5%'.
+    """
     verdict_order = ["SUPPORTS", "REFUTES", "NOT ENOUGH INFO"]
     return ", ".join(
         f"{verdict}={_format_confidence_percentage(verdict_probabilities.get(verdict, 0.0))}"
@@ -143,6 +167,14 @@ def _format_verdict_probabilities(verdict_probabilities: dict[str, float]) -> st
 
 
 def _build_technical_summary(state: HiddenState) -> str:
+    """Builds a technical summary markdown string containing NLI metrics.
+
+    Args:
+        state: The HiddenState containing NLI results.
+
+    Returns:
+        A formatted technical summary string.
+    """
     verdict = state["nli_label"]
     confidence = _format_confidence_percentage(state["confidence"])
     model_label = state.get("nli_model_label", "n/d")
@@ -159,6 +191,15 @@ def _build_technical_summary(state: HiddenState) -> str:
 
 
 def _prepend_technical_summary(text: str, state: HiddenState) -> str:
+    """Prepends the technical NLI classification metrics summary to the LLM response.
+
+    Args:
+        text: The original response from the LLM.
+        state: The HiddenState with NLI results.
+
+    Returns:
+        The text with prepended technical summary.
+    """
     summary = _build_technical_summary(state)
     if text.startswith(summary):
         return text
@@ -166,6 +207,14 @@ def _prepend_technical_summary(text: str, state: HiddenState) -> str:
 
 
 def _fallback_search_query(query: str) -> str:
+    """Extracts keywords from query to form a search string (fallback when LLM is unavailable).
+
+    Args:
+        query: The user's original query.
+
+    Returns:
+        A simplified search query string.
+    """
     words = re.findall(r"\w+", query.lower())
     keywords = [word for word in words if len(word) > 2 and word not in ITALIAN_STOPWORDS]
     selected_words = keywords[:6] or words[:6]
@@ -173,6 +222,14 @@ def _fallback_search_query(query: str) -> str:
 
 
 def _fallback_motivation(state: HiddenState) -> str:
+    """Generates a structured fact-checking explanation (fallback when LLM is unavailable).
+
+    Args:
+        state: The HiddenState containing the query, researches, and NLI verdict.
+
+    Returns:
+        A markdown-formatted final response text.
+    """
     verdict = state["nli_label"]
     verdict_text = {
         "SUPPORTS": "le evidenze recuperate sono coerenti con il claim",
@@ -202,6 +259,14 @@ def _fallback_motivation(state: HiddenState) -> str:
 
 
 def _map_model_label_to_verdict(model_label: str) -> str:
+    """Maps NLI model class labels (e.g. entailment, neutral, contradiction) to FEVER space labels.
+
+    Args:
+        model_label: Model config label string.
+
+    Returns:
+        One of 'SUPPORTS', 'REFUTES', or 'NOT ENOUGH INFO'.
+    """
     normalized_label = model_label.strip().lower().replace(" ", "_")
     verdict_map = {
         "entailment": "SUPPORTS",
@@ -222,6 +287,17 @@ def _map_model_label_to_verdict(model_label: str) -> str:
 
 
 def _resolve_model_label(predicted_class_id: int) -> str:
+    """Resolves predicted class integer ID to a label string using the model configuration.
+
+    Args:
+        predicted_class_id: Int class predicted by the classifier.
+
+    Returns:
+        The class label string.
+    """
+    if ml.nli_model is None:
+        raise RuntimeError("Modello NLI non inizializzato in core.ml.")
+
     id2label = getattr(ml.nli_model.config, "id2label", {}) or {}
     model_label = id2label.get(predicted_class_id, id2label.get(str(predicted_class_id), ""))
 
@@ -236,7 +312,15 @@ def _resolve_model_label(predicted_class_id: int) -> str:
     raise ValueError(f"Impossibile risolvere la label NLI per class_id={predicted_class_id}")
 
 
-def refine_query_node(state: HiddenState):
+def refine_query_node(state: HiddenState) -> dict[str, Any]:
+    """Generates a neutral search query for Google/DuckDuckGo from the user claim.
+
+    Args:
+        state: The HiddenState containing 'query'.
+
+    Returns:
+        A dictionary containing the generated 'search_query'.
+    """
     prompt = f"""
     Genera una query di ricerca neutrale per Google/DuckDuckGo a partire da questo testo: "{state['query']}"
     Mantieni solo i termini informativi essenziali, come nomi propri, luoghi, date, enti o evento principale.
@@ -255,19 +339,34 @@ def refine_query_node(state: HiddenState):
     return {"search_query": search_query}
 
 
-def search_node(state: HiddenState):
-    search = DuckDuckGoSearchResults(output_format="list", num_results=5)
-    raw_results = search.invoke(state["search_query"])
-    normalized_results = _normalize_search_results(raw_results)
-    retrieved_docs = [
-        _format_search_result(result, index)
-        for index, result in enumerate(normalized_results, start=1)
-    ]
-    researches = "\n\n".join(retrieved_docs) if retrieved_docs else "Nessun risultato trovato."
-    sources = _extract_sources(normalized_results)
+def search_node(state: HiddenState) -> dict[str, Any]:
+    """Searches the web for evidence relative to the search query.
+
+    Args:
+        state: The HiddenState containing 'search_query'.
+
+    Returns:
+        A dictionary with 'researches', 'retrieved_docs', and 'sources'.
+    """
+    retrieved_docs: list[str] = []
+    sources: list[str] = []
+    researches = "Nessun risultato trovato a causa di un errore di connessione."
+
+    try:
+        search = DuckDuckGoSearchResults(output_format="list", num_results=5)
+        raw_results = search.invoke(state["search_query"])
+        normalized_results = _normalize_search_results(raw_results)
+        retrieved_docs = [
+            _format_search_result(result, index)
+            for index, result in enumerate(normalized_results, start=1)
+        ]
+        researches = "\n\n".join(retrieved_docs) if retrieved_docs else "Nessun risultato trovato."
+        sources = _extract_sources(normalized_results)
+    except Exception as e:
+        print(f"[Search Node] Errore durante la ricerca sul web: {e}")
 
     print(
-        f"[Search Node] Risultati estratti: {len(normalized_results)} documenti, "
+        f"[Search Node] Risultati estratti: {len(retrieved_docs)} documenti, "
         f"{len(sources)} fonti."
     )
     return {
@@ -277,9 +376,22 @@ def search_node(state: HiddenState):
     }
 
 
-def nli_classification_node(state: HiddenState):
+def nli_classification_node(state: HiddenState) -> dict[str, Any]:
+    """Compares web evidence against the original claim using the NLI sequence classifier.
+
+    Args:
+        state: The HiddenState containing 'researches' (Premise) and 'query' (Hypothesis).
+
+    Returns:
+        A dictionary mapping NLI verdict, confidence, and internal model predictions.
+    """
     premise = state["researches"]
     hypothesis = state["query"]
+
+    if ml.tokenizer is None or ml.nli_model is None:
+        raise RuntimeError(
+            "Modello NLI o Tokenizer non inizializzati in core.ml. Assicurati di chiamare init_models() prima dell'esecuzione."
+        )
 
     inputs = ml.tokenizer(
         premise,
@@ -301,6 +413,7 @@ def nli_classification_node(state: HiddenState):
     model_label = _resolve_model_label(predicted_class_id)
     label = _map_model_label_to_verdict(model_label)
     verdict_probabilities = _build_verdict_probabilities(probs)
+
     print(
         f"[NLI Node] class_id={predicted_class_id}, model_label={model_label}, "
         f"verdict={label}, confidence={confidence}, "
@@ -315,7 +428,15 @@ def nli_classification_node(state: HiddenState):
     }
 
 
-def generate_motivation_node(state: HiddenState):
+def generate_motivation_node(state: HiddenState) -> dict[str, Any]:
+    """Generates the final natural language explanation response via the LLM.
+
+    Args:
+        state: The HiddenState containing claim, NLI classifications, and sources.
+
+    Returns:
+        A dictionary containing the generated 'motivation' and final 'response'.
+    """
     confidence_text = _format_confidence_percentage(state["confidence"])
     sources_text = _format_sources_for_prompt(state.get("sources", []))
     probabilities_text = _format_verdict_probabilities(state.get("verdict_probabilities", {}))
@@ -369,6 +490,7 @@ def generate_motivation_node(state: HiddenState):
     else:
         res = ml.llm.invoke(final_prompt)
         motivation_text = _prepend_technical_summary(_extract_llm_text(res), state)
+
     final_response = (
         motivation_text
         + "\n\n---\n**Evidenza grezza recuperata dal web (DuckDuckGo):**\n"
