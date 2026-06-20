@@ -8,6 +8,7 @@ class InputState(TypedDict):
 class HiddenState(TypedDict):
     query: str
     search_query: str
+    premise: str
     researches: str
     sources: list[str]
     retrieved_docs: list[str]

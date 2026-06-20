@@ -360,6 +360,7 @@ def search_node(state: HiddenState) -> dict[str, Any]:
             _format_search_result(result, index)
             for index, result in enumerate(normalized_results, start=1)
         ]
+        premise = "\n\n".join([res['snippet'] for res in normalized_results]) if retrieved_docs else "Nessun risultato trovato."
         researches = "\n\n".join(retrieved_docs) if retrieved_docs else "Nessun risultato trovato."
         sources = _extract_sources(normalized_results)
     except Exception as e:
@@ -370,6 +371,7 @@ def search_node(state: HiddenState) -> dict[str, Any]:
         f"{len(sources)} fonti."
     )
     return {
+        "premise": premise,
         "researches": researches,
         "retrieved_docs": retrieved_docs,
         "sources": sources,
@@ -385,7 +387,7 @@ def nli_classification_node(state: HiddenState) -> dict[str, Any]:
     Returns:
         A dictionary mapping NLI verdict, confidence, and internal model predictions.
     """
-    premise = state["researches"]
+    premise = state["premise"]
     hypothesis = state["query"]
 
     if ml.tokenizer is None or ml.nli_model is None:
