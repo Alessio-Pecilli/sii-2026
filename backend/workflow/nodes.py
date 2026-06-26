@@ -10,7 +10,7 @@ from models.state import HiddenState
 ITALIAN_STOPWORDS = {
     "a", "ad", "al", "alla", "allo", "anche", "che", "chi", "con", "da", "dal",
     "dalla", "dello", "dei", "del", "della", "di", "e", "ed", "gli", "ha",
-    "hanno", "i", "il", "in", "la", "le", "lo", "ma", "nel", "nella", "non",
+    "hanno", "i", "il", "in", "la", "le", "lo", "ma", "nel", "nella",
     "o", "per", "piu", "più", "quale", "quali", "se", "si", "sia", "sono",
     "su", "tra", "un", "una",
 }
@@ -323,7 +323,7 @@ def refine_query_node(state: HiddenState) -> dict[str, Any]:
     """
     prompt = f"""
     Genera una query di ricerca neutrale per Google/DuckDuckGo a partire da questo testo: "{state['query']}"
-    Mantieni solo i termini informativi essenziali, come nomi propri, luoghi, date, enti o evento principale.
+    Mantieni solo i termini informativi essenziali, come nomi propri, luoghi, date, enti o evento principale e non eliminare il termine 'non'.
     Non aggiungere parole che suggeriscano un esito, una verifica o un giudizio, come "vero", "falso", "bufala", "smentita" o simili.
     Se utile, riformula in modo breve e generico senza cambiare il significato.
     Lunghezza massima: 5-6 parole.
@@ -360,7 +360,6 @@ def search_node(state: HiddenState) -> dict[str, Any]:
             _format_search_result(result, index)
             for index, result in enumerate(normalized_results, start=1)
         ]
-        premise = "\n\n".join([res['snippet'] for res in normalized_results]) if retrieved_docs else "Nessun risultato trovato."
         researches = "\n\n".join(retrieved_docs) if retrieved_docs else "Nessun risultato trovato."
         sources = _extract_sources(normalized_results)
     except Exception as e:
@@ -371,7 +370,6 @@ def search_node(state: HiddenState) -> dict[str, Any]:
         f"{len(sources)} fonti."
     )
     return {
-        "premise": premise,
         "researches": researches,
         "retrieved_docs": retrieved_docs,
         "sources": sources,
@@ -387,7 +385,7 @@ def nli_classification_node(state: HiddenState) -> dict[str, Any]:
     Returns:
         A dictionary mapping NLI verdict, confidence, and internal model predictions.
     """
-    premise = state["premise"]
+    premise = state["researches"]
     hypothesis = state["query"]
 
     if ml.tokenizer is None or ml.nli_model is None:
