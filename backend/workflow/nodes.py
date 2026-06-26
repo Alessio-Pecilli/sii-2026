@@ -322,13 +322,20 @@ def refine_query_node(state: HiddenState) -> dict[str, Any]:
         A dictionary containing the generated 'search_query'.
     """
     prompt = f"""
-    Genera una query di ricerca neutrale per Google/DuckDuckGo a partire da questo testo: "{state['query']}"
-    Mantieni solo i termini informativi essenziali, come nomi propri, luoghi, date, enti o evento principale e non eliminare il termine 'non'.
-    Non aggiungere parole che suggeriscano un esito, una verifica o un giudizio, come "vero", "falso", "bufala", "smentita" o simili.
-    Se utile, riformula in modo breve e generico senza cambiare il significato.
-    Lunghezza massima: 5-6 parole.
-    Rispondi solo con la query, senza virgolette, formattazione o testo aggiuntivo.
-    """
+            Genera una query di ricerca neutrale, ricca ed espansa per Google/DuckDuckGo a partire da questo testo: "{state['query']}"
+
+            Invece di riassumere, espandi il testo includendo:
+            1. I termini informativi principali (nomi, luoghi, date, eventi).
+            2. Sinonimi rilevanti, parole chiave correlate o concetti di contesto che aiutino a trovare più fonti possibili sull'argomento.
+            3. Mantieni tassativamente il termine 'non' se presente, per non invertire il senso della ricerca.
+
+            Linee guida cruciali:
+            - Non aggiungere parole che suggeriscano un esito, una verifica o un giudizio, come "vero", "falso", "bufala", "smentita" o simili. La query deve rimanere totalmente neutrale.
+            - Evita congiunzioni o parole vuote inutili; usa la tecnica della "combinazione di parole chiave" (keyword stuffing logico).
+
+            Lunghezza indicativa: dalle 8 alle 12 parole.
+            Rispondi solo con la query espansa, senza virgolette, formattazione o testo aggiuntivo.
+            """
     if ml.llm is None:
         search_query = _fallback_search_query(state["query"])
     else:
